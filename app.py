@@ -325,26 +325,31 @@ with tab_send:
     # -----------------------------
     st.subheader("6) SMTP настройки")
 
-    # Пробуем достать настройки из secrets.toml, если их нет — оставляем пустыми
-    secrets = st.secrets.get("smtp", {})
-    default_user = secrets.get("email", "")
-    default_pass = secrets.get("password", "")
-    default_host = secrets.get("host", "smtp.gmail.com")
-    default_port = secrets.get("port", 587)
+    # 1. Сначала берем данные из st.secrets (если их там нет, будут пустые строки или дефолты)
+    # Это работает и локально (из .streamlit/secrets.toml) и в облаке (из Settings -> Secrets)
+    sec_email = st.secrets.get("smtp", {}).get("email", "")
+    sec_pass = st.secrets.get("smtp", {}).get("password", "")
+    sec_host = st.secrets.get("smtp", {}).get("host", "smtp.gmail.com")
+    sec_port = st.secrets.get("smtp", {}).get("port", 465)
 
-    with st.expander("Настройки подключения", expanded=not default_user):
-        smtp_host = st.text_input("SMTP host", value=default_host)
-        smtp_port = st.number_input("SMTP port", min_value=1, value=default_port)
-        use_tls = st.checkbox("Использовать STARTTLS", value=True)
+    # 2. Показываем пользователю настройки (информация уже подставлена из секретов)
+    # Мы оставляем expander, чтобы интерфейс был чистым, но настройки были доступны
+    with st.expander("Настройки подключения и авторизации", expanded=False):
+        smtp_host = st.text_input("SMTP host", value=sec_host)
+        # Важно: приводим порт к int, так как secrets может вернуть строку
+        smtp_port = int(st.number_input("SMTP port", min_value=1, max_value=65535, value=int(sec_port)))
         
-        st.info("Для Gmail используйте 'Пароль приложений' (App Password).")
-        smtp_user = st.text_input("SMTP login", value=default_user)
-        smtp_password = st.text_input("SMTP password", value=default_pass, type="password")
-        from_addr = st.text_input("From (от кого)", value=default_user)
+        st.info("Для Gmail рекомендуется порт 465 (SSL). Если 587 не работает — используйте его.")
+        
+        smtp_user = st.text_input("SMTP login", value=sec_email)
+        smtp_password = st.text_input("SMTP password (App Password)", value=sec_pass, type="password")
+        from_addr = st.text_input("Отправитель (Email)", value=sec_email)
+        
+        use_tls = st.checkbox("Использовать STARTTLS (только для порта 587)", value=(smtp_port == 587))
 
-    # Добавляем настройку задержки
+    # 3. Настройки процесса
     sleep_time = st.slider("Задержка между письмами (сек)", 0.0, 5.0, 1.0, step=0.5, 
-                        help="Gmail может заблокировать за спам, если слать слишком быстро. Рекомендуем 1-2 сек.")
+                        help="Gmail может заблокировать за спам, если слать слишком быстро.")
 
     dry_run = st.checkbox("Тестовый прогон (не отправлять, только сформировать)", value=False)
 
